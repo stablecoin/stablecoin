@@ -769,42 +769,6 @@ bool AppInit2()
 #endif
 
 
-	// Genesis block
-    const char* pszTimestamp = "June 7 2013, The Times, Prince Philip admitted to hospital for two weeks";
-    CTransaction txNew;
-    txNew.vin.resize(1);
-    txNew.vout.resize(1);
-    txNew.vin[0].scriptSig = CScript() << 486604799 << CBigNum(4) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
-    txNew.vout[0].nValue = 1250000 * COIN;
-    txNew.vout[0].scriptPubKey = CScript() << ParseHex("0449D77B9B62E0DB1FD6150ECFC5722F31FEE52E585DE31B5AEFAD2CAC415D5698991F8F0B0CBBA7B9F4431BBE79B684876EDFBD369554ACC4182753FA48A3CD80") << OP_CHECKSIG;
-    CBlock block;
-    block.vtx.push_back(txNew);
-    block.hashPrevBlock = 0;
-    block.hashMerkleRoot = block.BuildMerkleTree();
-    block.nVersion = 1;
-    block.nTime    = 1370579804;
-    block.nBits    = 0x1e0fffff;
-    block.nNonce   = 2788;
-		
-	uint256 genesisHash("0x0a59605118489aa9cde58e64210d3d56e246758fbabcd1482e54bf4032545221");
-	uint256 hash = txNew.GetHash();
-
-{
-	LOCK(mempool.cs);
-	mempool.addUnchecked(hash,txNew);
-}
-		
-{
-	CTxDB txdb;
-	txdb.TxnBegin();
-	CBlockIndex* pindex = mapBlockIndex.find(genesisHash)->second;
-	unsigned int nTxPos = pindex->nBlockPos + ::GetSerializeSize(CBlock(), SER_DISK, CLIENT_VERSION) - 1 + GetSizeOfCompactSize(block.vtx.size());
-	CDiskTxPos posThisTx(pindex->nFile, pindex->nBlockPos, nTxPos);
-    txdb.UpdateTxIndex(txNew.GetHash(), CTxIndex(posThisTx, txNew.vout.size()));
-    txdb.TxnCommit();
-}
-
-
     return true;
 }
 
