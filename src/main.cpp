@@ -876,9 +876,9 @@ int64 static GetBlockValue(int nHeight, int64 nFees)
     return nSubsidy + nFees;
 }
 
-static const int64 nTargetTimespan = 60 * 1.5 * 40; // StableCoin: retarget every 90 blocks (1 hour)
-static const int64 nTargetSpacing = 1 * 40; // StableCoin: 40 seconds
-static const int64 nInterval = nTargetTimespan / nTargetSpacing;
+	//New Protocol
+	static int64 nTargetTimespan = 10 * 60; // Retarget every 10 blocks (10 minutes)
+	static int64 nTargetSpacing = 1 * 60; // 60 seconds
 
 //
 // minimum amount of work that could possibly be required nTime after
@@ -886,6 +886,7 @@ static const int64 nInterval = nTargetTimespan / nTargetSpacing;
 //
 unsigned int ComputeMinWork(unsigned int nBase, int64 nTime)
 {
+
     // Testnet has min-difficulty blocks
     // after nTargetSpacing*2 time between blocks:
     if (fTestNet && nTime > nTargetSpacing*2)
@@ -907,6 +908,30 @@ unsigned int ComputeMinWork(unsigned int nBase, int64 nTime)
 
 unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlock *pblock)
 {
+	int nHeight = pindexLast->nHeight + 1;
+	
+	int64 nInterval;
+	int64 nActualTimespanMax;
+	int64 nActualTimespanMin;
+	
+	if (nHeight > 312000)
+	{   //New Protocol
+		nTargetTimespan = 10 * 60; // Retarget every 10 blocks (10 minutes)
+		nTargetSpacing = 1 * 60; // 60 seconds
+		nInterval = nTargetTimespan / nTargetSpacing;
+		nActualTimespanMax = nTargetTimespan * (112/100); //12% down
+		nActualTimespanMin = nTargetTimespan * (100/111); //10% up
+	}
+	else
+	{   //Old Protocol
+		nTargetTimespan = 60 * 1.5 * 40; // Retarget every 90 blocks (1 hour) 
+		nTargetSpacing = 1 * 40; // 40 seconds
+		nInterval = nTargetTimespan / nTargetSpacing;
+		nActualTimespanMax = nTargetTimespan*4;
+		nActualTimespanMin = nTargetTimespan/4;
+	}
+	
+
     unsigned int nProofOfWorkLimit = bnProofOfWorkLimit.GetCompact();
 
     // Genesis block
@@ -951,10 +976,10 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
     // Limit adjustment step
     int64 nActualTimespan = pindexLast->GetBlockTime() - pindexFirst->GetBlockTime();
     printf("  nActualTimespan = %"PRI64d"  before bounds\n", nActualTimespan);
-    if (nActualTimespan < nTargetTimespan/4)
-        nActualTimespan = nTargetTimespan/4;
-    if (nActualTimespan > nTargetTimespan*4)
-        nActualTimespan = nTargetTimespan*4;
+    if (nActualTimespan < nActualTimespanMin)
+        nActualTimespan = nActualTimespanMin;
+    if (nActualTimespan > nActualTimespanMax)
+        nActualTimespan = nActualTimespanMax;
 
     // Retarget
     CBigNum bnNew;

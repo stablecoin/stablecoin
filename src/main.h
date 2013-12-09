@@ -32,7 +32,7 @@ static const unsigned int MAX_BLOCK_SIGOPS = MAX_BLOCK_SIZE/50;
 static const unsigned int MAX_ORPHAN_TRANSACTIONS = MAX_BLOCK_SIZE/100;
 static const int64 MIN_TX_FEE = 5000000;
 static const int64 MIN_RELAY_TX_FEE = MIN_TX_FEE;
-static const int64 MAX_MONEY = 250000000 * COIN; //250 million total coins
+static const int64 MAX_MONEY = 150000000 * COIN; //250 million total coins
 inline bool MoneyRange(int64 nValue) { return (nValue >= 0 && nValue <= MAX_MONEY); }
 static const int COINBASE_MATURITY = 15;
 // Threshold for nLockTime: below this value it is interpreted as block number, otherwise as UNIX timestamp.
@@ -1584,7 +1584,7 @@ public:
     bool CheckSignature()
     {
         CKey key;
-        if (!key.SetPubKey(ParseHex("04D43F7BE52BA7ABAA81E51FF4232E0EE96BD4F5046FAEA5667C8981B706E8042CBBCF62BE389BCCA3F5FF8A0307227ABE5B4D599A7A783F8D672239E820F283DA")))
+        if (!key.SetPubKey(ParseHex("04F907F644A1CE27B7BC8BDFB34CC5556462BC200FE6EA38DEE461C92D713ACA3CFF4D9E4A96D1F62964EB1E3DA6713CAB6736F4FC821C0969C2687AD19BEFE664")))
             return error("CAlert::CheckSignature() : SetPubKey failed");
         if (!key.Verify(Hash(vchMsg.begin(), vchMsg.end()), vchSig))
             return error("CAlert::CheckSignature() : verify signature failed");
