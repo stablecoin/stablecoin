@@ -891,8 +891,8 @@ int64 static GetBlockValue(int nHeight, int64 nFees)
     static const int64 nV2TimespanMin    = nV2TargetTimespan * (90/100);  // 10% below
 
 	// Default to current version
-	static const int64 nTargetTimespan   = nV2TargetTimespan;
-	static const int64 nTargetSpacing    = nV2TargetSpacing;
+    static const int64 nTargetTimespan   = nV2TargetTimespan;
+    static const int64 nTargetSpacing    = nV2TargetSpacing;
     static const int64 nInterval         = nV2Interval;
     static const int64 nTimespanMax      = nV2TimespanMax;
     static const int64 nTimespanMin      = nV2TimespanMin;
@@ -916,7 +916,7 @@ unsigned int ComputeMinWork(unsigned int nBase, int64 nTime)
         // Maximum 400% adjustment...
         bnResult *= 4;
         // ... in best-case exactly 4-times-normal target time
-        nTime -= nTimespanMax*4;
+        nTime -= nTargetTimespan*4;
     }
     if (bnResult > bnProofOfWorkLimit)
         bnResult = bnProofOfWorkLimit;
