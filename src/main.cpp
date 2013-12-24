@@ -890,7 +890,7 @@ int64 static GetBlockValue(int nHeight, int64 nFees)
     static const int64 nV2TimespanMax    = nV2TargetTimespan * (112/100); // 12% above
     static const int64 nV2TimespanMin    = nV2TargetTimespan * (90/100);  // 10% below
 
-	// Default to current version
+    // Default to current version
     static const int64 nTargetTimespan   = nV2TargetTimespan;
     static const int64 nTargetSpacing    = nV2TargetSpacing;
     static const int64 nInterval         = nV2Interval;
