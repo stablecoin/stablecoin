@@ -914,7 +914,7 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
 	int64 nActualTimespanMax;
 	int64 nActualTimespanMin;
 	
-	if (nHeight > 318000)
+	if (nHeight > 317000)
 	{   //Fixed
 		nTargetTimespan = 10 * 60; // Retarget every 10 blocks (10 minutes)
 		nTargetSpacing = 1 * 60; // 60 seconds
