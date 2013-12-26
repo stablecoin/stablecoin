@@ -887,8 +887,8 @@ int64 static GetBlockValue(int nHeight, int64 nFees)
     static const int64 nV2TargetTimespan = 10 * 60; // retarget every 10 minutes (600 seconds)
     static const int64 nV2TargetSpacing  = 60;      // 60 second target block time
     static const int64 nV2Interval       = nV2TargetTimespan / nV2TargetSpacing; // every 10 blocks
-    static const int64 nV2TimespanMax    = nV2TargetTimespan * (112/100); // 12% above
-    static const int64 nV2TimespanMin    = nV2TargetTimespan * (90/100);  // 10% below
+    static const int64 nV2TimespanMax    = nV2TargetTimespan * (112.0/100); // 12% above
+    static const int64 nV2TimespanMin    = nV2TargetTimespan * (90.0/100);  // 10% below
 
     // Default to current version
     static const int64 nTargetTimespan   = nV2TargetTimespan;
