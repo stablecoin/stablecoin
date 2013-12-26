@@ -828,7 +828,7 @@ uint256 static GetOrphanRoot(const CBlock* pblock)
 
 int64 static GetBlockValue(int nHeight, int64 nFees)
 {
-    int64 nSubsidy = 25 * COIN;
+    int64 nSubsidy = 25.0 * COIN;
 		
 	if(nHeight < 90)  
     {
@@ -914,7 +914,15 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
 	int64 nActualTimespanMax;
 	int64 nActualTimespanMin;
 	
-	if (nHeight > 312000)
+	if (nHeight > 318000)
+	{   //Fixed
+		nTargetTimespan = 10 * 60; // Retarget every 10 blocks (10 minutes)
+		nTargetSpacing = 1 * 60; // 60 seconds
+		nInterval = nTargetTimespan / nTargetSpacing;
+		nActualTimespanMax = (nTargetTimespan * 112)/100; //12% down
+		nActualTimespanMin = (nTargetTimespan * 100)/111; //10% up
+	}
+	else if (nHeight > 312000)
 	{   //New Protocol
 		nTargetTimespan = 10 * 60; // Retarget every 10 blocks (10 minutes)
 		nTargetSpacing = 1 * 60; // 60 seconds
@@ -930,7 +938,6 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
 		nActualTimespanMax = nTargetTimespan*4;
 		nActualTimespanMin = nTargetTimespan/4;
 	}
-	
 
     unsigned int nProofOfWorkLimit = bnProofOfWorkLimit.GetCompact();
 
