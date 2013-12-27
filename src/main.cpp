@@ -877,8 +877,33 @@ int64 static GetBlockValue(int nHeight, int64 nFees)
 }
 
 	//New Protocol
-	static int64 nTargetTimespan = 10 * 60; // Retarget every 10 blocks (10 minutes)
-	static int64 nTargetSpacing = 1 * 60; // 60 seconds
+    // Version 1 Difficulty (value-locked for posterity)
+    static const int64 nV1TargetTimespan = 3600;  // retarget every hour (3600 seconds)
+    static const int64 nV1TargetSpacing  = 40;    // 40 second target block time
+    static const int64 nV1Interval       = 90;    // (nV1TargetTimespan / nV1TargetSpacing)
+    static const int64 nV1TimespanMax    = 14400; // (nV1TargetTimespan * 4)
+    static const int64 nV1TimespanMin    = 900;   // (nV1TargetTimespan / 4)
+
+    // Version 2 Difficulty (value-locked for posterity)
+    static const int64 nV2TargetTimespan = 600;   // retarget every 10 minutes (600 seconds)
+    static const int64 nV2TargetSpacing  = 60;    // 60 second target block time
+    static const int64 nV2Interval       = 10;    // (nV2TargetTimespan / nV2TargetSpacing)
+    static const int64 nV2TimespanMax    = 600;   // (nV2TargetTimespan * (112/100)) ~ (always = TargetTimespan)
+    static const int64 nV2TimespanMin    = 0;     // (nV2TargetTimespan * (90/100))  ~ (always = 0)
+
+    // Version 3 Difficulty
+    static const int64 nV3TargetTimespan = 600;   // retarget every 10 minutes (600 seconds)
+    static const int64 nV3TargetSpacing  = 60;    // 60 second target block time
+    static const int64 nV3Interval       = 10;    // (nV3TargetTimespan / nV3TargetSpacing)
+    static const int64 nV3TimespanMax    = nV3TargetTimespan * 1.12; // 112% (12% above)
+    static const int64 nV3TimespanMin    = nV3TargetTimespan * 0.9;  //  90% (10% below)
+
+    // Default to current version
+    static const int64 nTargetTimespan   = nV3TargetTimespan;
+    static const int64 nTargetSpacing    = nV3TargetSpacing;
+    static const int64 nInterval         = nV3Interval;
+    static const int64 nTimespanMax      = nV3TimespanMax;
+    static const int64 nTimespanMin      = nV3TimespanMin;
 
 //
 // minimum amount of work that could possibly be required nTime after
@@ -906,39 +931,8 @@ unsigned int ComputeMinWork(unsigned int nBase, int64 nTime)
     return bnResult.GetCompact();
 }
 
-unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlock *pblock)
-{
-	int nHeight = pindexLast->nHeight + 1;
-	
-	int64 nInterval;
-	int64 nActualTimespanMax;
-	int64 nActualTimespanMin;
-	
-	if (nHeight > 317000)
-	{   //Fixed
-		nTargetTimespan = 10 * 60; // Retarget every 10 blocks (10 minutes)
-		nTargetSpacing = 1 * 60; // 60 seconds
-		nInterval = nTargetTimespan / nTargetSpacing;
-		nActualTimespanMax = (nTargetTimespan * 112)/100; //12% down
-		nActualTimespanMin = (nTargetTimespan * 100)/111; //10% up
-	}
-	else if (nHeight > 312000)
-	{   //New Protocol
-		nTargetTimespan = 10 * 60; // Retarget every 10 blocks (10 minutes)
-		nTargetSpacing = 1 * 60; // 60 seconds
-		nInterval = nTargetTimespan / nTargetSpacing;
-		nActualTimespanMax = nTargetTimespan * (112/100); //12% down
-		nActualTimespanMin = nTargetTimespan * (100/111); //10% up
-	}
-	else
-	{   //Old Protocol
-		nTargetTimespan = 60 * 1.5 * 40; // Retarget every 90 blocks (1 hour) 
-		nTargetSpacing = 1 * 40; // 40 seconds
-		nInterval = nTargetTimespan / nTargetSpacing;
-		nActualTimespanMax = nTargetTimespan*4;
-		nActualTimespanMin = nTargetTimespan/4;
-	}
-
+unsigned int static GetNextWorkRequiredAdjusted(const CBlockIndex* pindexLast, const CBlock *pblock, int64 nAdjustedTargetTimespan, int64 nAdjustedTargetSpacing, int64 nAdjustedInterval, int64 nAdjustedTimespanMax, int64 nAdjustedTimespanMin)
+{   
     unsigned int nProofOfWorkLimit = bnProofOfWorkLimit.GetCompact();
 
     // Genesis block
@@ -946,20 +940,20 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
         return nProofOfWorkLimit;
 
     // Only change once per interval
-    if ((pindexLast->nHeight+1) % nInterval != 0)
+    if ((pindexLast->nHeight+1) % nAdjustedInterval != 0)
     {
         // Special difficulty rule for testnet:
         if (fTestNet)
         {
             // If the new block's timestamp is more than 2* 10 minutes
             // then allow mining of a min-difficulty block.
-            if (pblock->nTime > pindexLast->nTime + nTargetSpacing*2)
+            if (pblock->nTime > pindexLast->nTime + nAdjustedTargetSpacing*2)
                 return nProofOfWorkLimit;
             else
             {
                 // Return the last non-special-min-difficulty-rules-block
                 const CBlockIndex* pindex = pindexLast;
-                while (pindex->pprev && pindex->nHeight % nInterval != 0 && pindex->nBits == nProofOfWorkLimit)
+                while (pindex->pprev && pindex->nHeight % nAdjustedInterval != 0 && pindex->nBits == nProofOfWorkLimit)
                     pindex = pindex->pprev;
                 return pindex->nBits;
             }
@@ -970,9 +964,9 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
 
     // StableCoin: This fixes an issue where a 51% attack can change difficulty at will.
     // Go back the full period unless it's the first retarget after genesis. Code courtesy of Art Forz
-    int blockstogoback = nInterval-1;
-    if ((pindexLast->nHeight+1) != nInterval)
-        blockstogoback = nInterval;
+    int blockstogoback = nAdjustedInterval-1;
+    if ((pindexLast->nHeight+1) != nAdjustedInterval)
+        blockstogoback = nAdjustedInterval;
 
     // Go back by what we want to be 14 days worth of blocks
     const CBlockIndex* pindexFirst = pindexLast;
@@ -983,27 +977,46 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
     // Limit adjustment step
     int64 nActualTimespan = pindexLast->GetBlockTime() - pindexFirst->GetBlockTime();
     printf("  nActualTimespan = %"PRI64d"  before bounds\n", nActualTimespan);
-    if (nActualTimespan < nActualTimespanMin)
-        nActualTimespan = nActualTimespanMin;
-    if (nActualTimespan > nActualTimespanMax)
-        nActualTimespan = nActualTimespanMax;
+    if (nActualTimespan < nAdjustedTimespanMin)
+        nActualTimespan = nAdjustedTimespanMin;
+    if (nActualTimespan > nAdjustedTimespanMax)
+        nActualTimespan = nAdjustedTimespanMax;
 
     // Retarget
     CBigNum bnNew;
     bnNew.SetCompact(pindexLast->nBits);
     bnNew *= nActualTimespan;
-    bnNew /= nTargetTimespan;
+    bnNew /= nAdjustedTargetTimespan;
 
     if (bnNew > bnProofOfWorkLimit)
         bnNew = bnProofOfWorkLimit;
 
     /// debug print
     printf("GetNextWorkRequired RETARGET\n");
-    printf("nTargetTimespan = %"PRI64d"    nActualTimespan = %"PRI64d"\n", nTargetTimespan, nActualTimespan);
+    printf("nTargetTimespan = %"PRI64d"    nActualTimespan = %"PRI64d"\n", nAdjustedTargetTimespan, nActualTimespan);
     printf("Before: %08x  %s\n", pindexLast->nBits, CBigNum().SetCompact(pindexLast->nBits).getuint256().ToString().c_str());
     printf("After:  %08x  %s\n", bnNew.GetCompact(), bnNew.getuint256().ToString().c_str());
 
     return bnNew.GetCompact();
+}
+
+// modified to accommodate difficulty algorithm tweaks
+unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlock *pblock)
+{
+    int nHeight = pindexLast->nHeight + 1;
+
+    if (nHeight > 317000)
+    {
+        return GetNextWorkRequiredAdjusted(pindexLast, pblock, nV3TargetTimespan, nV3TargetSpacing, nV3Interval, nV3TimespanMax, nV3TimespanMin);
+    }
+    else if (nHeight > 312000) // Version 2
+    {
+        return GetNextWorkRequiredAdjusted(pindexLast, pblock, nV2TargetTimespan, nV2TargetSpacing, nV2Interval, nV2TimespanMax, nV2TimespanMin);
+    }
+    else // Version 1 (Genesis)
+    {
+        return GetNextWorkRequiredAdjusted(pindexLast, pblock, nV1TargetTimespan, nV1TargetSpacing, nV1Interval, nV1TimespanMax, nV1TimespanMin);
+    }
 }
 
 bool CheckProofOfWork(uint256 hash, unsigned int nBits)
