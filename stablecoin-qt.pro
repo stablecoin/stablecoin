@@ -26,11 +26,26 @@ contains(RELEASE, 1) {
     macx:QMAKE_CFLAGS += -mmacosx-version-min=10.5 -arch i386 -isysroot /Developer/SDKs/MacOSX10.5.sdk
     macx:QMAKE_LFLAGS += -mmacosx-version-min=10.5 -arch i386 -isysroot /Developer/SDKs/MacOSX10.5.sdk
 
-    !windows:!macx {
+    !win32:!macx {
         # Linux: static link
         LIBS += -Wl,-Bstatic
     }
 }
+!win32 {
+# for extra security against potential buffer overflows: enable GCCs Stack Smashing Protection
+QMAKE_CXXFLAGS *= -fstack-protector-all --param ssp-buffer-size=1
+QMAKE_LFLAGS *= -fstack-protector-all --param ssp-buffer-size=1
+# We need to exclude this for Windows cross compile with MinGW 4.2.x, as it will result in a non-working executable!
+# This can be enabled for Windows, when we switch to MinGW >= 4.4.x.
+}
+# for extra security (see: https://wiki.debian.org/Hardening): this flag is GCC compiler-specific
+QMAKE_CXXFLAGS += -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
+# for extra security on Windows: enable ASLR and DEP via GCC linker flags
+win32:QMAKE_LFLAGS *= -Wl,--dynamicbase -Wl,--nxcompat
+# on Windows: enable GCC large address aware linker flag
+win32:QMAKE_LFLAGS *= -Wl,--large-address-aware
+# i686-w64-mingw32
+win32:QMAKE_LFLAGS *= -static-libgcc -static-libstdc++
 
 # use: qmake "USE_QRCODE=1"
 # libqrencode (http://fukuchi.org/works/qrencode/index.en.html) must be installed for support
@@ -75,12 +90,6 @@ contains(BITCOIN_NEED_QT_PLUGINS, 1) {
     QTPLUGIN += qcncodecs qjpcodecs qtwcodecs qkrcodecs qtaccessiblewidgets
 }
 
-!windows {
-    # for extra security against potential buffer overflows
-    QMAKE_CXXFLAGS += -fstack-protector
-    QMAKE_LFLAGS += -fstack-protector
-    # do not enable this on windows, as it will result in a non-working executable!
-}
 
 # regenerate src/build.h
 !windows|contains(USE_BUILD_INFO, 1) {
@@ -92,7 +101,9 @@ contains(BITCOIN_NEED_QT_PLUGINS, 1) {
     DEFINES += HAVE_BUILD_INFO
 }
 
-QMAKE_CXXFLAGS_WARN_ON = -fdiagnostics-show-option -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter
+QMAKE_CXXFLAGS += -msse2
+QMAKE_CFLAGS += -msse2
+QMAKE_CXXFLAGS_WARN_ON = -fdiagnostics-show-option -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter -Wstack-protector
 
 # Input
 DEPENDPATH += src src/json src/qt
@@ -288,7 +299,7 @@ OTHER_FILES += \
 # platform specific defaults, if not overridden on command line
 isEmpty(BOOST_LIB_SUFFIX) {
     macx:BOOST_LIB_SUFFIX = -mt
-    windows:BOOST_LIB_SUFFIX = -mgw44-mt-s-1_53
+    win32:BOOST_LIB_SUFFIX = -mgw48-mt-s-1_55
 }
 
 isEmpty(BOOST_THREAD_LIB_SUFFIX) {
@@ -315,11 +326,10 @@ isEmpty(BOOST_INCLUDE_PATH) {
     macx:BOOST_INCLUDE_PATH = /opt/local/include
 }
 
-windows:LIBS += -lshlwapi
-windows:DEFINES += WIN32
-windows:RC_FILE = src/qt/res/bitcoin-qt.rc
+win32:DEFINES += WIN32
+win32:RC_FILE = src/qt/res/bitcoin-qt.rc
 
-windows:!contains(MINGW_THREAD_BUGFIX, 0) {
+win32:!contains(MINGW_THREAD_BUGFIX, 0) {
     # At least qmake's win32-g++-cross profile is missing the -lmingwthrd
     # thread-safety flag. GCC has -mthreads to enable this, but it doesn't
     # work with static linking. -lmingwthrd must come BEFORE -lmingw, so
@@ -330,7 +340,7 @@ windows:!contains(MINGW_THREAD_BUGFIX, 0) {
     QMAKE_LIBS_QT_ENTRY = -lmingwthrd $$QMAKE_LIBS_QT_ENTRY
 }
 
-!windows:!mac {
+!win32:!macx {
     DEFINES += LINUX
     LIBS += -lrt
 }
@@ -347,16 +357,15 @@ INCLUDEPATH += $$BOOST_INCLUDE_PATH $$BDB_INCLUDE_PATH $$OPENSSL_INCLUDE_PATH $$
 LIBS += $$join(BOOST_LIB_PATH,,-L,) $$join(BDB_LIB_PATH,,-L,) $$join(OPENSSL_LIB_PATH,,-L,) $$join(QRENCODE_LIB_PATH,,-L,)
 LIBS += -lssl -lcrypto -ldb_cxx$$BDB_LIB_SUFFIX
 # -lgdi32 has to happen after -lcrypto (see  #681)
-windows:LIBS += -lws2_32 -lmswsock -lole32 -loleaut32 -luuid -lgdi32
+win32:LIBS += -lws2_32 -lshlwapi -lmswsock -lole32 -loleaut32 -luuid -lgdi32
 LIBS += -lboost_system$$BOOST_LIB_SUFFIX -lboost_filesystem$$BOOST_LIB_SUFFIX -lboost_program_options$$BOOST_LIB_SUFFIX -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
+win32:LIBS += -lboost_chrono$$BOOST_LIB_SUFFIX
 
 contains(RELEASE, 1) {
-    !windows:!macx {
+    !win32:!macx {
         # Linux: turn dynamic linking back on for c/c++ runtime libraries
         LIBS += -Wl,-Bdynamic
     }
 }
 
 system($$QMAKE_LRELEASE -silent $$_PRO_FILE_)
-
-
